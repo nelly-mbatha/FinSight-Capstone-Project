@@ -1,1 +1,1 @@
-# Group2-Capstone-Project
+# FinSight-Capstone-Project
