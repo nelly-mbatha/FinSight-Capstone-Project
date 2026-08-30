@@ -1,0 +1,37 @@
+{
+  "Price Features": {
+    "Day Price": "Current day closing price",
+    "Previous": "Previous day closing price",
+    "Day Low": "Current day lowest price",
+    "Day High": "Current day highest price",
+    "12m Low": "52-week low",
+    "12m High": "52-week high"
+  },
+  "Lag Features": {
+    "Lag_1": "Price from 1 day ago",
+    "Lag_2": "Price from 2 days ago",
+    "Lag_3": "Price from 3 days ago",
+    "Lag_5": "Price from 5 days ago",
+    "Lag_10": "Price from 10 days ago"
+  },
+  "Rolling Features": {
+    "MA_5": "5-day moving average",
+    "MA_10": "10-day moving average",
+    "MA_20": "20-day moving average",
+    "Vol_5": "5-day volatility (std)",
+    "Vol_10": "10-day volatility (std)",
+    "Vol_20": "20-day volatility (std)"
+  },
+  "Derived Features": {
+    "Price_to_High": "Current price / 52-week high",
+    "Price_to_Low": "Current price / 52-week low",
+    "Daily_Return": "Daily percentage return",
+    "Day_of_Week": "Day of week (0=Monday)",
+    "Month": "Month number (1-12)",
+    "Quarter": "Quarter number (1-4)",
+    "Volume_Ratio": "Volume / 5-day average volume"
+  },
+  "Target": {
+    "Target": "Next day's closing price (what to predict)"
+  }
+}
