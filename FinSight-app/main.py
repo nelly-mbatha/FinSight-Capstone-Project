@@ -3,22 +3,12 @@ from pydantic import BaseModel
 import joblib
 import pandas as pd
 
-from fastapi.middleware.cors import CORSMiddleware
-
 # Initialize the FastAPI app
 app = FastAPI(title="FinSight NSE Predictor API")
 
 # Load the model and feature list on startup
 model = joblib.load('model.pkl')
 features = joblib.load('features.pkl')
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # For development; specify your frontend URL in production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # Define the expected input format (adjust these to match your exact selected_features)
 class StockData(BaseModel):
@@ -50,6 +40,16 @@ def predict_stock(data: StockData):
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error processing data: {str(e)}")
+
+from fastapi.middleware.cors import CORSMiddleware
+   
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # For development; specify your frontend URL in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 def read_root():
