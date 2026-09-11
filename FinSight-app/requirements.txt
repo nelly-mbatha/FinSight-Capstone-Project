@@ -3,3 +3,4 @@ uvicorn
 pandas
 scikit-learn
 joblib
+curl-cffi
