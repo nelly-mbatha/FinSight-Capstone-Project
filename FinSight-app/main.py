@@ -7,8 +7,8 @@ import pandas as pd
 app = FastAPI(title="FinSight NSE Predictor API")
 
 # Load the model and feature list on startup
-model = joblib.load('FinSight-app/model.pkl')
-features = joblib.load('FinSight-app/features.pkl')
+model = joblib.load('model.pkl')
+features = joblib.load('features.pkl')
 
 # Define the expected input format (adjust these to match your exact selected_features)
 class StockData(BaseModel):
