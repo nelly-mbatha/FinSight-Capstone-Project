@@ -4,3 +4,4 @@ pandas
 scikit-learn
 joblib
 curl-cffi
+yfinance
