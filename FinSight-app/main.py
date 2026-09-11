@@ -13,12 +13,12 @@ model = joblib.load('model.pkl')
 features = joblib.load('features.pkl')
 
 app.add_middleware(
-       CORSMiddleware,
-       allow_origins=["https://phenomenal-chaja-bc9862.netlify.app/"],  # Or specify your frontend URL: ["https://your-frontend.com"]
-       allow_credentials=True,
-       allow_methods=["*"],
-       allow_headers=["*"],
-   )
+    CORSMiddleware,
+    allow_origins=["*"],  # For development; specify your frontend URL in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Define the expected input format (adjust these to match your exact selected_features)
 class StockData(BaseModel):
