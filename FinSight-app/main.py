@@ -3,6 +3,15 @@ from pydantic import BaseModel
 import joblib
 import pandas as pd
 
+from fastapi.middleware.cors import CORSMiddleware
+   
+app.add_middleware(
+       CORSMiddleware,
+       allow_origins=["https://phenomenal-chaja-bc9862.netlify.app/"],  # Or specify your frontend URL: ["https://your-frontend.com"]
+       allow_credentials=True,
+       allow_methods=["*"],
+       allow_headers=["*"],
+   )
 # Initialize the FastAPI app
 app = FastAPI(title="FinSight NSE Predictor API")
 
