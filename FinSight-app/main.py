@@ -38,10 +38,7 @@ def get_historical_data(stock_code: str) -> pd.DataFrame:
 # 3. Feature Engineering Pipeline (Extracted from your Notebook)
 def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy().sort_values(by='Date')
-    
-    # Lag features
-    for lag in [1, 2, 3, 5, 10]:
-        df[f'Lag_{lag}'] = df['Day Price'].shift(lag)
+
         
     # Rolling averages and volatility
     for window in [5, 10, 20]:
