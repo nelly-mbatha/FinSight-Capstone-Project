@@ -1,3 +1,4 @@
+from curl_cffi import request
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -25,21 +26,38 @@ class StockRequest(BaseModel):
     stock_code: str
 
 # 2. Mock function to fetch historical data (Replace with your DB/API query)
+import yfinance as yf 
+
 def get_historical_data(stock_code: str) -> pd.DataFrame:
-    """
-    TODO: Replace this with your actual database or API call.
-    You need to fetch the last ~30-60 days of raw data for the stock_code.
-    Columns needed: 'Date', 'Code', 'Day Price', 'Volume', '12m High', '12m Low'
-    """
-    # Example: df = pd.read_sql(f"SELECT * FROM stocks WHERE Code='{stock_code}' ORDER BY Date DESC LIMIT 60")
-    # For now, returning an empty dataframe to show structure
-    return pd.DataFrame() 
+    try:
+        # Example: Fetching last 60 days of data
+        # Note: NSE stocks on Yahoo Finance usually end in '.NA' (e.g., EGAD.NA)
+        ticker = yf.Ticker(f"{stock_code}.NA")
+        hist = ticker.history(period="60d")
+        
+        if hist.empty:
+            return pd.DataFrame()
+            
+        # Format to match your notebook's expected columns
+        df = hist.reset_index()
+        df = df.rename(columns={
+            'Date': 'Date',
+            'Close': 'Day Price',
+            'Volume': 'Volume'
+        })
+        df['Code'] = stock_code
+        df['12m High'] = df['Day Price'].max() # Mocking 12m high/low for the API call
+        df['12m Low'] = df['Day Price'].min()
+        
+        return df[['Date', 'Code', 'Day Price', 'Volume', '12m High', '12m Low']]
+    except Exception as e:
+        print(f"Data fetch error: {e}")
+        return pd.DataFrame()
 
 # 3. Feature Engineering Pipeline (Extracted from your Notebook)
 def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy().sort_values(by='Date')
-
-        
+    
     # Rolling averages and volatility
     for window in [5, 10, 20]:
         df[f'MA_{window}'] = df['Day Price'].rolling(window, min_periods=1).mean()
@@ -94,7 +112,13 @@ def predict_stock(request: StockRequest):
         latest_row = df_features.iloc[[-1]] 
         
         # Step 4: Ensure columns match model expectations and handle any NaNs from lags
-        latest_row = latest_row[features].fillna(0) # Fill NaNs if early lags are missing
+        latest_row = latest_row[features]
+        # Check if critical features are NaN due to insufficient history
+        if latest_row.isnull().values.any():
+            raise HTTPException(
+            status_code=400, 
+            detail=f"Insufficient historical data to calculate technical indicators for {request.stock_code}. Need at least 30-60 days of data."
+    )
         
         # Step 5: Predict
         prediction = model.predict(latest_row)[0]
