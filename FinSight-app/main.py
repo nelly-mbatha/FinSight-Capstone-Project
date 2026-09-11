@@ -4,7 +4,14 @@ import joblib
 import pandas as pd
 
 from fastapi.middleware.cors import CORSMiddleware
-   
+
+# Initialize the FastAPI app
+app = FastAPI(title="FinSight NSE Predictor API")
+
+# Load the model and feature list on startup
+model = joblib.load('model.pkl')
+features = joblib.load('features.pkl')
+
 app.add_middleware(
        CORSMiddleware,
        allow_origins=["https://phenomenal-chaja-bc9862.netlify.app/"],  # Or specify your frontend URL: ["https://your-frontend.com"]
@@ -12,12 +19,6 @@ app.add_middleware(
        allow_methods=["*"],
        allow_headers=["*"],
    )
-# Initialize the FastAPI app
-app = FastAPI(title="FinSight NSE Predictor API")
-
-# Load the model and feature list on startup
-model = joblib.load('model.pkl')
-features = joblib.load('features.pkl')
 
 # Define the expected input format (adjust these to match your exact selected_features)
 class StockData(BaseModel):
