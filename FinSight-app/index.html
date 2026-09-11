@@ -4,92 +4,57 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FinSight | NSE Predictive Analytics</title>
-    <!-- Tailwind CSS for modern, slick styling -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <style> body { font-family: 'Inter', sans-serif; } </style>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; text-align: center; }
+        input, button { padding: 10px; margin: 10px; font-size: 16px; }
+        .result { margin-top: 20px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; display: none; }
+    </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col items-center justify-center p-4">
+<body>
+    <h1>FinSight</h1>
+    <p>NSE Short-Term Directional Forecast</p>
+    
+    <input type="text" id="stockCode" placeholder="Enter Stock Code (e.g., EGAD)">
+    <button onclick="getForecast()">Generate Forecast</button>
 
-    <div class="max-w-md w-full bg-slate-800 rounded-2xl shadow-2xl border border-slate-700 p-8">
-        <div class="text-center mb-8">
-            <h1 class="text-3xl font-bold text-blue-400 mb-2">FinSight</h1>
-            <p class="text-slate-400 text-sm">NSE Short-Term Directional Forecast</p>
-        </div>
-
-        <!-- Mock Input Form (In reality, your frontend would fetch live data or let user input features) -->
-        <div class="space-y-4">
-            <div>
-                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Stock Code</label>
-                <input type="text" id="stockCode" value="SCOM" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition" placeholder="e.g., SCOM">
-            </div>
-            
-            <button onclick="getPrediction()" id="predictBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg transition duration-300 flex items-center justify-center gap-2">
-                <span>Generate Forecast</span>
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-            </button>
-        </div>
-
-        <!-- Result Display (Hidden by default) -->
-        <div id="resultCard" class="hidden mt-6 p-4 bg-slate-900 rounded-xl border border-slate-700 animate-pulse">
-            <div class="flex justify-between items-center mb-2">
-                <span class="text-slate-400 text-sm">Predicted Direction</span>
-                <span id="direction" class="text-xl font-bold">--</span>
-            </div>
-            <div class="flex justify-between items-center mb-2">
-                <span class="text-slate-400 text-sm">Model Confidence</span>
-                <span id="confidence" class="text-lg font-semibold text-blue-300">--</span>
-            </div>
-            <p id="message" class="text-xs text-slate-500 mt-3 pt-3 border-t border-slate-800">--</p>
-        </div>
+    <div id="resultBox" class="result">
+        <h2 id="direction">Predicted Direction: --</h2>
+        <p id="confidence">Model Confidence: --</p>
+        <p id="message" style="font-style: italic;"></p>
     </div>
 
     <script>
-        async function getPrediction() {
-            const btn = document.getElementById('predictBtn');
-            const resultCard = document.getElementById('resultCard');
-            
-            // UI Loading State
-            btn.innerHTML = 'Analyzing...';
-            btn.disabled = true;
-            resultCard.classList.remove('hidden');
-            resultCard.classList.add('animate-pulse');
+        async function getForecast() {
+            const stockCode = document.getElementById('stockCode').value.trim().toUpperCase();
+            if (!stockCode) {
+                alert("Please enter a stock code!");
+                return;
+            }
 
-            // MOCK DATA: Replace this with actual feature values from your database or user input
-            // This must match the 'selected_features' your model expects!
-            const mockFeatures = {
-                "Vol_5": 10000, "Vol_10": 12000,
-                "Price_to_High": 0.85, "Price_to_Low": 1.2, "Daily_Return": 0.02,
-                "Volume_MA_5": 10000, "Volume_Ratio": 1.1,
-                "RSI_14": 55.5, "MACD_Hist": 0.05,
-                "Momentum_10": 0.03
-            };
-            
             try {
-                // REPLACE THIS URL with your actual deployed backend URL (e.g., https://finsight-api.onrender.com)
-                // For local testing, use: http://127.0.0.1:10000/predict
-                const response = await fetch('https://finsight-predicts.onrender.com/predict', {
+                // Connect to your FastAPI backend
+                const response = await fetch('http://127.0.0.1:10000/predict', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ data: mockFeatures })
+                    body: JSON.stringify({ stock_code: stockCode })
                 });
 
-                const result = await response.json();
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || "Failed to fetch forecast");
+                }
 
-                // Update UI
-                document.getElementById('direction').innerText = result.direction;
-                document.getElementById('direction').className = `text-xl font-bold ${result.direction.includes('UP') ? 'text-green-400' : 'text-red-400'}`;
-                document.getElementById('confidence').innerText = result.confidence;
-                document.getElementById('message').innerText = result.message;
+                const data = await response.json();
+                
+                // Display results
+                document.getElementById('direction').innerText = `Predicted Direction: ${data.direction}`;
+                document.getElementById('confidence').innerText = `Model Confidence: ${data.confidence}`;
+                document.getElementById('message').innerText = data.message;
+                document.getElementById('resultBox').style.display = 'block';
 
             } catch (error) {
-                console.error("Error:", error);
-                document.getElementById('message').innerText = "Failed to connect to the prediction engine.";
-            } finally {
-                btn.innerHTML = `<span>Generate Forecast</span><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>`;
-                btn.disabled = false;
-                resultCard.classList.remove('animate-pulse');
+                alert(`Error: ${error.message}`);
+                document.getElementById('resultBox').style.display = 'none';
             }
         }
     </script>
