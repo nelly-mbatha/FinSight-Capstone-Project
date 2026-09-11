@@ -5,7 +5,7 @@ FROM python:3.10-slim
 WORKDIR /app
 
 # Copy requirements and install them
-COPY FinSight-app/requirements.txt.
+COPY FinSight-app/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application code (including model.pkl and features.pkl)
