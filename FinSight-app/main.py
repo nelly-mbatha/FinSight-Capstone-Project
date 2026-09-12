@@ -1,46 +1,78 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+import os
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
 import joblib
 import pandas as pd
 
-# Initialize the FastAPI app
-app = FastAPI(title="FinSight NSE Predictor API")
+# ✅ FIX: Use absolute paths so Render can find files regardless of where it runs
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Load the model and feature list on startup
-model = joblib.load('model.pkl')
-features = joblib.load('features.pkl')
+app = Flask(__name__, static_folder=BASE_DIR, static_url_path='')
+CORS(app)
 
-# Define the expected input format (adjust these to match your exact selected_features)
-class StockData(BaseModel):
-    # Example: Using a dictionary to accept any number of features dynamically
-    # In production, you can define each feature explicitly: Lag_1: float, MA_5: float, etc.
-    data: dict 
+# ==========================================
+# 1. LOAD MODEL & FEATURES (Using Absolute Paths)
+# ==========================================
+print("🔄 Loading FinSight Model and Features...")
+try:
+    model_path = os.path.join(BASE_DIR, 'model.pkl')
+    features_path = os.path.join(BASE_DIR, 'features.pkl')
+    
+    model = joblib.load(model_path)
+    expected_features = joblib.load(features_path)
+    print("✅ Model loaded successfully!\n")
+except FileNotFoundError:
+    print("❌ Error: Model files not found.")
+    exit(1)
 
-@app.post("/predict")
-def predict_stock(data: StockData):
+# ==========================================
+# 2. DEFINE API ROUTES
+# ==========================================
+@app.route('/')
+def home():
+    # ✅ Serve the frontend using the absolute base directory
+    return send_from_directory(BASE_DIR, 'index.html')
+
+@app.route('/predict', methods=['POST'])
+def predict():
     try:
-        # Convert the incoming JSON data into a Pandas DataFrame
-        df = pd.DataFrame([data.data])
-        
-        # Ensure the DataFrame has the exact columns the model expects, in the right order
-        df = df[features]
-        
-        # Make the prediction
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No JSON data received"}), 400
+
+        df = pd.DataFrame([data])
+
+        missing_features = set(expected_features) - set(df.columns)
+        if missing_features:
+            return jsonify({"error": "Missing features", "missing": list(missing_features)}), 400
+
+        for col in expected_features:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+
+        if df[expected_features].isnull().any().any():
+            return jsonify({"error": "Invalid data types"}), 400
+
+        df = df[expected_features]
         prediction = model.predict(df)[0]
         probabilities = model.predict_proba(df)[0]
-        
-        # Probability of class '1' (Price Up)
-        prob_up = probabilities[1] 
-        
-        return {
-            "status": "success",
-            "direction": "UP 📈" if prediction == 1 else "DOWN 📉",
-            "confidence": f"{round(prob_up * 100, 2)}%",
-            "message": "Model is confident in this prediction." if prob_up > 0.65 else "Model is uncertain. Proceed with caution."
-        }
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error processing data: {str(e)}")
 
-@app.get("/")
-def read_root():
-    return {"message": "FinSight API is running! Visit /docs to see the interactive API documentation."}
+        return jsonify({
+            "status": "success",
+            "prediction": int(prediction),
+            "label": "Price Up 📈" if prediction == 1 else "Price Down/Flat 📉",
+            "confidence": {
+                "Price_Up_Percent": round(float(probabilities[1]) * 100, 2),
+                "Price_Down_Percent": round(float(probabilities[0]) * 100, 2)
+            }
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ==========================================
+# 3. RUN THE SERVER
+# ==========================================
+if __name__ == '__main__':
+    # ✅ Render provides a PORT environment variable. We must use it.
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False) # debug=False for production!
