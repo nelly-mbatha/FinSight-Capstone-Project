@@ -1,20 +1,28 @@
-from flask import Flask, request, jsonify
+import os
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
 import joblib
 import pandas as pd
-import numpy as np
 
-app = Flask(__name__)
+# ✅ FIX: Use absolute paths so Render can find files regardless of where it runs
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+app = Flask(__name__, static_folder=BASE_DIR, static_url_path='')
+CORS(app)
 
 # ==========================================
-# 1. LOAD MODEL & FEATURES
+# 1. LOAD MODEL & FEATURES (Using Absolute Paths)
 # ==========================================
 print("🔄 Loading FinSight Model and Features...")
 try:
-    model = joblib.load('model.pkl')
-    expected_features = joblib.load('features.pkl')
+    model_path = os.path.join(BASE_DIR, 'model.pkl')
+    features_path = os.path.join(BASE_DIR, 'features.pkl')
+    
+    model = joblib.load(model_path)
+    expected_features = joblib.load(features_path)
     print("✅ Model loaded successfully!\n")
 except FileNotFoundError:
-    print("❌ Error: 'model.pkl' or 'features.pkl' not found. Please ensure they are in the same folder.")
+    print("❌ Error: Model files not found.")
     exit(1)
 
 # ==========================================
@@ -22,57 +30,42 @@ except FileNotFoundError:
 # ==========================================
 @app.route('/')
 def home():
-    return """
-    <h1>FinSight NSE Prediction API</h1>
-    <p>The model is online and ready to predict short-term stock movements.</p>
-    <p><b>Endpoint:</b> POST /predict</p>
-    """
+    # ✅ Serve the frontend using the absolute base directory
+    return send_from_directory(BASE_DIR, 'index.html')
 
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
-        # 1. Get JSON data from the incoming request
         data = request.get_json()
-        
-        # 2. Convert to a Pandas DataFrame
+        if not data:
+            return jsonify({"error": "No JSON data received"}), 400
+
         df = pd.DataFrame([data])
-        
-        # 3. Validate that all 10 required features are present
+
         missing_features = set(expected_features) - set(df.columns)
         if missing_features:
-            return jsonify({
-                "error": "Missing required technical indicators",
-                "missing": list(missing_features)
-            }), 400
-            
-        # 4. Defensive Type Coercion (Prevents crashes if client sends strings instead of floats)
+            return jsonify({"error": "Missing features", "missing": list(missing_features)}), 400
+
         for col in expected_features:
             df[col] = pd.to_numeric(df[col], errors='coerce')
-            
-        # Drop if coercion resulted in NaNs (invalid data provided)
+
         if df[expected_features].isnull().any().any():
-            return jsonify({"error": "Invalid data types or NaN values in features"}), 400
-            
-        # 5. Reorder columns to exactly match how the model was trained
+            return jsonify({"error": "Invalid data types"}), 400
+
         df = df[expected_features]
-        
-        # 6. Make the prediction
         prediction = model.predict(df)[0]
         probabilities = model.predict_proba(df)[0]
-        
-        # 7. Format the response
-        result = {
+
+        return jsonify({
             "status": "success",
             "prediction": int(prediction),
-            "label": "Price Up (1)" if prediction == 1 else "Price Down/Flat (0)",
+            "label": "Price Up 📈" if prediction == 1 else "Price Down/Flat 📉",
             "confidence": {
                 "Price_Up_Percent": round(float(probabilities[1]) * 100, 2),
                 "Price_Down_Percent": round(float(probabilities[0]) * 100, 2)
             }
-        }
-        
-        return jsonify(result), 200
-        
+        }), 200
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -80,4 +73,6 @@ def predict():
 # 3. RUN THE SERVER
 # ==========================================
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # ✅ Render provides a PORT environment variable. We must use it.
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False) # debug=False for production!
