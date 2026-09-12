@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinSight | NSE Predictive Analytics</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+        }
+        h1 { font-size: 2.5rem; margin-bottom: 10px; }
+        .subtitle { color: #aaa; margin-bottom: 30px; }
+        .card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 30px;
+            width: 100%;
+            max-width: 500px;
+            backdrop-filter: blur(10px);
+        }
+        label { display: block; margin: 10px 0 5px; font-size: 0.9rem; color: #ccc; }
+        input {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+            font-size: 1rem;
+        }
+        button {
+            margin-top: 20px;
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            color: #fff;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        button:hover { transform: scale(1.02); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .result {
+            margin-top: 25px;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            display: none;
+        }
+        .result.show { display: block; }
+        .result.up { background: rgba(0,200,83,0.15); border: 1px solid #00c853; }
+        .result.down { background: rgba(255,23,68,0.15); border: 1px solid #ff1744; }
+        .result h2 { font-size: 1.8rem; margin-bottom: 8px; }
+        .confidence { font-size: 0.95rem; color: #ccc; margin-top: 5px; }
+        .error { color: #ff1744; margin-top: 15px; text-align: center; }
+    </style>
+</head>
+<body>
+    <h1>📊 FinSight</h1>
+    <p class="subtitle">NSE Short-Term Directional Forecast</p>
+
+    <div class="card">
+        <p style="color:#aaa; font-size:0.85rem; margin-bottom:15px;">
+            Enter the 10 technical indicators for a stock:
+        </p>
+
+        <!-- ✅ All 10 expected features as inputs -->
+        <label>Vol_5 (5-day Volatility)</label>
+        <input type="number" step="any" id="Vol_5" placeholder="e.g. 2.34">
+
+        <label>Vol_10 (10-day Volatility)</label>
+        <input type="number" step="any" id="Vol_10" placeholder="e.g. 3.12">
+
+        <label>Price_to_High</label>
+        <input type="number" step="any" id="Price_to_High" placeholder="e.g. 0.85">
+
+        <label>Price_to_Low</label>
+        <input type="number" step="any" id="Price_to_Low" placeholder="e.g. 1.12">
+
+        <label>Daily_Return</label>
+        <input type="number" step="any" id="Daily_Return" placeholder="e.g. 0.015">
+
+        <label>Volume_MA_5</label>
+        <input type="number" step="any" id="Volume_MA_5" placeholder="e.g. 500000">
+
+        <label>Volume_Ratio</label>
+        <input type="number" step="any" id="Volume_Ratio" placeholder="e.g. 1.2">
+
+        <label>RSI_14</label>
+        <input type="number" step="any" id="RSI_14" placeholder="e.g. 55.3">
+
+        <label>MACD_Hist</label>
+        <input type="number" step="any" id="MACD_Hist" placeholder="e.g. 0.45">
+
+        <label>Momentum_10</label>
+        <input type="number" step="any" id="Momentum_10" placeholder="e.g. 0.03">
+
+        <button id="predictBtn" onclick="generateForecast()">🚀 Generate Forecast</button>
+
+        <div id="resultBox" class="result">
+            <h2 id="directionText">--</h2>
+            <p class="confidence" id="confidenceText">--</p>
+        </div>
+        <p class="error" id="errorText"></p>
+    </div>
+
+    <!-- ✅ JavaScript to call the Flask API -->
+    <script>
+        // These MUST match the feature names in features.pkl
+        const FEATURE_NAMES = [
+            'Vol_5', 'Vol_10', 'Price_to_High', 'Price_to_Low',
+            'Daily_Return', 'Volume_MA_5', 'Volume_Ratio',
+            'RSI_14', 'MACD_Hist', 'Momentum_10'
+        ];
+
+        async function generateForecast() {
+            const btn = document.getElementById('predictBtn');
+            const resultBox = document.getElementById('resultBox');
+            const errorText = document.getElementById('errorText');
+
+            // Reset UI
+            resultBox.classList.remove('show', 'up', 'down');
+            errorText.textContent = '';
+            btn.disabled = true;
+            btn.textContent = '⏳ Predicting...';
+
+            // Collect input values
+            const payload = {};
+            let hasError = false;
+
+            for (const feature of FEATURE_NAMES) {
+                const value = document.getElementById(feature).value;
+                if (value === '' || isNaN(value)) {
+                    errorText.textContent = `⚠️ Please enter a valid number for ${feature}`;
+                    hasError = true;
+                    break;
+                }
+                payload[feature] = parseFloat(value);
+            }
+
+            if (hasError) {
+                btn.disabled = false;
+                btn.textContent = '🚀 Generate Forecast';
+                return;
+            }
+
+            try {
+                // ✅ Call the Flask API
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Prediction failed');
+                }
+
+                // Display results
+                const isUp = data.prediction === 1;
+                resultBox.classList.add('show', isUp ? 'up' : 'down');
+
+                document.getElementById('directionText').textContent = data.label;
+                document.getElementById('confidenceText').textContent =
+                    `Up: ${data.confidence.Price_Up_Percent}% | Down: ${data.confidence.Price_Down_Percent}%`;
+
+            } catch (err) {
+                errorText.textContent = `❌ ${err.message}`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🚀 Generate Forecast';
+            }
+        }
+    </script>
+</body>
+</html>
