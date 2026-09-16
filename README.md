@@ -102,7 +102,7 @@ The production configuration was subjected to rigorous validation metrics across
 We collaborated using a structured Git feature-branch workflow to build, test, and merge components into the main production tree while safeguarding the integrity of the project branch.
 
 | Team Member | Core Operational Focus |
-
+| ---| ---|
 | **Nelly Mbatha** | Business Understanding |
 | **Nganga Mwaura** | Data Preparation |
 | **Susan Mutiso** | Data Preparation |
