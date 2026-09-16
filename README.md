@@ -22,7 +22,7 @@ While institutional systems cater heavily to long-term position management, FinS
 
 
 
-## 📂 Project Directory Structure
+## Project Directory Structure
 
 ```text
 ├── data/                                             # Encapsulated data layer
@@ -41,7 +41,7 @@ While institutional systems cater heavily to long-term position management, FinS
 
 
 
-## 🛠️ Installation & Setup
+##  Installation & Setup
 
 1. **Clone the repository architecture:**
    ```bash
@@ -55,9 +55,9 @@ While institutional systems cater heavily to long-term position management, FinS
    pip install pandas numpy scikit-learn catboost optuna joblib matplotlib seaborn
    ```
 
----
 
-## 💻 Pipeline Workflows & Execution
+
+##  Pipeline Workflows & Execution
 
 ### 1. Data Processing and Feature Ingestion
 The pipeline merges the transitional ticker tables with corporate sector classifications, enforces strict datetime indexing, sanitizes object types, handles missing market records, and constructs the 28-dimensional multi-indicator matrix.
@@ -68,9 +68,9 @@ To execute the hyperparameter tuning phase, run the core pipeline notebook:
 * The notebook handles Exploratory Data Analysis, cleans data anomalies, and initializes the automated Optuna study tracking 30 distinct trials. It systematically tunes optimal leaf depth, learning rates, and sample splits over chronological folds.
 * Following optimization, the pipeline applies a `SelectFromModel` wrapper to prune the feature space down to the 10 most predictive, noise-resistant features, exporting the calibrated `model.pkl` and `features.pkl`.
 
----
 
-## 🌐 Production Cloud Deployment (Render)
+
+## Production Cloud Deployment (Render)
 
 The web application layer has been containerized and deployed to public production via the **Render** cloud platform infrastructure. The engine automatically handles ongoing web-request traffic and surfaces live predictions from the backend serial pipelines.
 
@@ -86,7 +86,7 @@ The service is hooked directly into the GitHub repository `main` branch. Any inc
 
 
 
-## 📊 Pipeline Evaluation Summary
+## Pipeline Evaluation Summary
 
 The production configuration was subjected to rigorous validation metrics across the historical out-of-sample evaluation split:
 
@@ -97,15 +97,15 @@ The production configuration was subjected to rigorous validation metrics across
 
 
 
-## 👥 Team & Cross-Functional Contributions
+## Team & Cross-Functional Contributions
 
 We collaborated using a structured Git feature-branch workflow to build, test, and merge components into the main production tree while safeguarding the integrity of the project branch.
 
 | Team Member | Core Operational Focus |
 
-| **Nelly Mbatha** | Lead ML Engineer / DevOps | Bayesian Hyperparameter Tuning (Optuna), Git Tree Architecture, Cloud Architecture |
-| **Team Member 2** | Quantitative Data Engineer | Ingestion Pipelines, Multi-Indicator Math, Data Cleansing & Merging |
-| **Team Member 3** | UI / Frontend Developer | FinSight Web Interface Design, Streamlit Rendering, Render Deployment |
-| **Team Member 4** | Business/Financial Analyst | CRISP-DM Specification Framework, Target Construction, Business Logic |
-| **Team Member 5** | QA / Model Evaluator | Platt-scaling Calibration Validation, Brier & AUROC Score Audit Systems |
-| **Team Member 6** | Deployment / Infrastructure | Production Inference Engine Latency Optimization, API Integrations |
+| **Nelly Mbatha** | Business Understanding 
+| **Nganga Mwaura** |
+| **Susan Mutiso** | 
+| **Wilson Kingori** | 
+| **Ahmeddin Abdulahi** |
+| **Denis Kamau** | Deployment 
