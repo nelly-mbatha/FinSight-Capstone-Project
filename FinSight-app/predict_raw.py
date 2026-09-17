@@ -32,55 +32,65 @@ def clean_raw_data(raw_df):
     # 3. Drop rows missing critical raw data
     df = df.dropna(subset=['Day Price', 'Volume', '12m High', '12m Low'])
 
-    # 4. Sort chronologically (CRITICAL for rolling windows)
+    # 4. Sort chronologically
     df = df.sort_values(by=['Date', 'Code']).reset_index(drop=True)
     return df
 
 
 def engineer_features(df):
     """Computes the 10 required features from cleaned NSE stock data."""
-    # 1. Volatility
-    df['Vol_5'] = df.groupby('Code')['Day Price'] \
-        .transform(lambda x: x.rolling(5, min_periods=2).std())
-    df['Vol_10'] = df.groupby('Code')['Day Price'] \
-        .transform(lambda x: x.rolling(10, min_periods=2).std())
+   # 1. Lag features (past prices)
+    for lag in [1, 2, 3, 5, 10]:
+        df[f'Lag_{lag}'] = df.groupby('Code')['Day Price'].shift(lag)
 
-    # 2. Price Ratios
+    # 2. Rolling averages and volatility
+    for window in [5, 10, 20]:
+        df[f'MA_{window}'] = df.groupby('Code')['Day Price'].transform(
+            lambda x: x.rolling(window, min_periods=1).mean())
+        df[f'Vol_{window}'] = df.groupby('Code')['Day Price'].transform(
+            lambda x: x.rolling(window, min_periods=2).std())
+
+    # 3. Price ratios & Returns
     df['Price_to_High'] = df['Day Price'] / df['12m High']
     df['Price_to_Low'] = df['Day Price'] / df['12m Low']
-
-    # 3. Daily Return
     df['Daily_Return'] = df.groupby('Code')['Day Price'].pct_change()
 
-    # 4. Volume Features
-    df['Volume_MA_5'] = df.groupby('Code')['Volume'] \
-        .transform(lambda x: x.rolling(5, min_periods=1).mean())
+    # 4. Date features
+    df['Day_of_Week'] = df['Date'].dt.dayofweek
+    df['Month'] = df['Date'].dt.month
+    df['Quarter'] = df['Date'].dt.quarter
+
+    # 5. Volume features
+    df['Volume_MA_5'] = df.groupby('Code')['Volume'].transform(
+        lambda x: x.rolling(5, min_periods=1).mean())
     df['Volume_Ratio'] = df['Volume'] / df['Volume_MA_5']
 
-    # 5. RSI (14-day)
+    # Advanced Technical Indicators
+    # EMAs
+    for window in [5, 10, 20]:
+        df[f'EMA_{window}'] = df.groupby('Code')['Day Price'].transform(
+            lambda x: x.ewm(span=window, adjust=False).mean())
+
+    # RSI (14-day)
     def calc_rsi(group, window=14):
         delta = group['Day Price'].diff()
         gain = delta.where(delta > 0, 0.0)
-        loss = -delta.where(delta < 0, 0.0)
+        loss= -delta.where(delta < 0, 0.0)
         avg_gain = gain.rolling(window=window, min_periods=1).mean()
         avg_loss = loss.rolling(window=window, min_periods=1).mean()
         rs = avg_gain / avg_loss
         group['RSI_14'] = 100 - (100 / (1 + rs))
         return group
-
     df = df.groupby('Code', group_keys=False).apply(calc_rsi)
 
-    # 6. MACD Histogram
-    ema_12 = df.groupby('Code')['Day Price'] \
-        .transform(lambda x: x.ewm(span=12, adjust=False).mean())
-    ema_26 = df.groupby('Code')['Day Price'] \
-        .transform(lambda x: x.ewm(span=26, adjust=False).mean())
+    # MACD
+    ema_12 = df.groupby('Code')['Day Price'].transform(lambda x: x.ewm(span=12, adjust=False).mean())
+    ema_26 = df.groupby('Code')['Day Price'].transform(lambda x: x.ewm(span=26, adjust=False).mean())
     df['MACD'] = ema_12 - ema_26
-    df['MACD_Signal'] = df.groupby('Code')['MACD'] \
-        .transform(lambda x: x.ewm(span=9, adjust=False).mean())
+    df['MACD_Signal'] = df.groupby('Code')['MACD'].transform(lambda x: x.ewm(span=9, adjust=False).mean())
     df['MACD_Hist'] = df['MACD'] - df['MACD_Signal']
 
-    # 7. Momentum (10-day)
+    # Momentum (10-day)
     df['Momentum_10'] = df.groupby('Code')['Day Price'].pct_change(10)
 
     # Extract the latest row for each stock
@@ -88,10 +98,9 @@ def engineer_features(df):
     return latest_data[['Code', 'Date'] + expected_features]
 
 
-# ==========================================
-# RUN BATCH PREDICTION
-# ==========================================
-# ✅ FIX: Double underscores on __name__ and __main__
+
+# Run the prediction
+
 if __name__ == '__main__':
     print("Loading raw data...")
     raw_data = pd.read_csv('NSE_data_all_stocks_2026_upto_jun.csv')

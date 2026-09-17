@@ -1,190 +1,630 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FinSight | NSE Predictive Analytics</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Segoe UI', sans-serif;
-            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-            color: #fff;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 40px 20px;
-        }
-        h1 { font-size: 2.5rem; margin-bottom: 10px; }
-        .subtitle { color: #aaa; margin-bottom: 30px; }
-        .card {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 16px;
-            padding: 30px;
-            width: 100%;
-            max-width: 500px;
-            backdrop-filter: blur(10px);
-        }
-        label { display: block; margin: 10px 0 5px; font-size: 0.9rem; color: #ccc; }
-        input {
-            width: 100%;
-            padding: 10px;
-            border-radius: 8px;
-            border: 1px solid rgba(255,255,255,0.2);
-            background: rgba(255,255,255,0.08);
-            color: #fff;
-            font-size: 1rem;
-        }
-        button {
-            margin-top: 20px;
-            width: 100%;
-            padding: 14px;
-            border: none;
-            border-radius: 10px;
-            background: linear-gradient(90deg, #667eea, #764ba2);
-            color: #fff;
-            font-size: 1.1rem;
-            font-weight: bold;
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-        button:hover { transform: scale(1.02); }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
-        .result {
-            margin-top: 25px;
-            padding: 20px;
-            border-radius: 12px;
-            text-align: center;
-            display: none;
-        }
-        .result.show { display: block; }
-        .result.up { background: rgba(0,200,83,0.15); border: 1px solid #00c853; }
-        .result.down { background: rgba(255,23,68,0.15); border: 1px solid #ff1744; }
-        .result h2 { font-size: 1.8rem; margin-bottom: 8px; }
-        .confidence { font-size: 0.95rem; color: #ccc; margin-top: 5px; }
-        .error { color: #ff1744; margin-top: 15px; text-align: center; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<title>FinSight | NSE Live Prices & Forecast</title>
+<style>
+/* 1. COLOURS AND BASIC PAGE STYLES */
+:root{
+  --bg:#004D4D;
+  --card:#003333;
+  --line:#0B7676;
+  --text:#e8edf7;
+  --muted:#94a3b8;
+  --green:#22c55e;
+  --red:#ef4444;
+  --blue:#228888;
+}
+*{box-sizing:border-box}
+html{
+  overflow-y:scroll;
+  scrollbar-width:thin;
+  scrollbar-color:var(--blue) #000000;
+  scroll-behavior:smooth;
+}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:Segoe UI, Arial, sans-serif;
+  font-size:15px;
+}
+h1,h2,h3{margin:0}
+
+/* 1b. SCROLLBARS */
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-track{background:#000000;border-radius:10px}
+::-webkit-scrollbar-thumb{
+  background:linear-gradient(180deg,var(--blue),var(--green));
+  border-radius:10px;
+  border:2px solid #003333;
+}
+::-webkit-scrollbar-thumb:hover{background:#004D4D}
+::-webkit-scrollbar-corner{background:#000000}
+
+.scrollable{
+  overflow-y:auto;
+  padding-right:8px;
+  overscroll-behavior:contain;
+}
+
+#toTop{
+  position:fixed;right:20px;bottom:20px;width:46px;height:46px;
+  border-radius:50%;border:1px solid var(--line);
+  background:var(--card);color:var(--text);font-size:18px;cursor:pointer;
+  opacity:0;pointer-events:none;transition:opacity .25s, transform .25s;
+  transform:translateY(10px);z-index:20;
+}
+#toTop.show{opacity:1;pointer-events:auto;transform:translateY(0)}
+#toTop:hover{border-color:var(--blue)}
+
+/* 2. PAGE LAYOUT */
+.wrap{max-width:1800px;margin:0 auto;padding:18px}
+header{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  padding:14px 18px;background:var(--card);
+  border:1px solid var(--line);border-radius:12px;margin-bottom:16px;
+}
+header .logo{font-size:22px}
+header h1{font-size:19px}
+header p{margin:2px 0 0;font-size:12px;color:var(--muted)}
+.status{margin-left:auto;text-align:right;font-size:12px;color:var(--muted)}
+.status b{color:var(--text);font-size:13px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--green);margin-right:6px}
+.dot.off{background:#f59e0b}
+
+.columns{display:grid;grid-template-columns:280px 1fr;gap:16px;align-items:start}
+@media(max-width:900px){.columns{grid-template-columns:1fr}}
+
+.card{
+  background:var(--card);border:1px solid var(--line);
+  border-radius:12px;padding:16px;margin-bottom:16px;
+}
+.card h2{font-size:14px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:12px}
+
+/* 3. WATCHLIST */
+#search{
+  width:100%;padding:9px 11px;margin-bottom:10px;
+  background:#0e1526;border:1px solid var(--line);border-radius:9px;color:var(--text);
+}
+.stock{
+  display:flex;justify-content:space-between;align-items:center;gap:8px;
+  padding:9px 10px;border-radius:9px;cursor:pointer;border:1px solid transparent;
+}
+.stock:hover{background:#1d3d39}
+.stock.active{background:#1d3d39;border-color:var(--blue)}
+.stock .sym{font-weight:bold;font-size:14px}
+.stock .nm{font-size:11px;color:var(--muted)}
+.stock .px{text-align:right;font-family:Consolas,monospace;font-size:13px}
+.stock .ch{text-align:right;font-family:Consolas,monospace;font-size:11px}
+.up{color:var(--green)}
+.down{color:var(--red)}
+.list{max-height:520px}
+@media(max-width:900px){.list{max-height:280px}}
+
+/* 4. CHART AREA */
+.chart-head{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:10px}
+.big-price{font-family:Consolas,monospace;font-size:30px;font-weight:bold}
+.buttons{display:flex;gap:6px;flex-wrap:wrap}
+button{
+  background:#1b2438;color:var(--text);border:1px solid var(--line);
+  padding:7px 12px;border-radius:8px;cursor:pointer;font-size:13px;
+}
+button:hover{border-color:var(--blue)}
+button.active{background:var(--blue);border-color:var(--blue);color:white}
+button.primary{background:var(--green);border-color:var(--green);color:#052e16;font-weight:bold}
+.chart-box{position:relative;height:340px}
+canvas{width:100%;height:100%;display:block}
+
+/* 5. FORECAST FORM */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-height:330px}
+@media(max-width:560px){.grid2{grid-template-columns:1fr;max-height:280px}}
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;font-family:Consolas,monospace}
+input{
+  width:100%;padding:9px 10px;background:#0e1526;border:1px solid var(--line);
+  border-radius:8px;color:var(--text);font-family:Consolas,monospace;font-size:13px;
+}
+input:focus{outline:none;border-color:var(--blue)}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+
+.result{margin-top:16px;display:none;max-height:520px}
+.result.show{display:block}
+.verdict{padding:14px;border-radius:11px;text-align:center;margin-bottom:12px;border:1px solid var(--line)}
+.verdict .dir{font-size:24px;font-weight:bold}
+.verdict .sub{font-size:12px;color:var(--muted);margin-top:3px}
+.note{font-size:12px;color:var(--muted);line-height:1.6;margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+</style>
 </head>
 <body>
-    <h1>📊 FinSight</h1>
-    <p class="subtitle">NSE Short-Term Directional Forecast</p>
 
+<div class="wrap">
+
+  <!-- TOP BAR -->
+  <header>
+    <span class="logo">📊</span>
+    <div>
+      <h1>FinSight</h1>
+      <p>Nairobi Securities Exchange &mdash; live prices &amp; short-term forecast</p>
+    </div>
+    <div class="status">
+      <div><span class="dot" id="dot"></span><b id="marketStatus">Market</b></div>
+      <div id="clock">--:--:-- EAT</div>
+    </div>
+  </header>
+
+  <div class="columns">
+
+    <!-- LEFT: WATCHLIST -->
     <div class="card">
-        <p style="color:#aaa; font-size:0.85rem; margin-bottom:15px;">
-            Enter the 10 technical indicators for a stock:
-        </p>
-
-        <!-- ✅ All 10 expected features as inputs -->
-        <label>Vol_5 (5-day Volatility)</label>
-        <input type="number" step="any" id="Vol_5" placeholder="e.g. 2.34">
-
-        <label>Vol_10 (10-day Volatility)</label>
-        <input type="number" step="any" id="Vol_10" placeholder="e.g. 3.12">
-
-        <label>Price_to_High</label>
-        <input type="number" step="any" id="Price_to_High" placeholder="e.g. 0.85">
-
-        <label>Price_to_Low</label>
-        <input type="number" step="any" id="Price_to_Low" placeholder="e.g. 1.12">
-
-        <label>Daily_Return</label>
-        <input type="number" step="any" id="Daily_Return" placeholder="e.g. 0.015">
-
-        <label>Volume_MA_5</label>
-        <input type="number" step="any" id="Volume_MA_5" placeholder="e.g. 500000">
-
-        <label>Volume_Ratio</label>
-        <input type="number" step="any" id="Volume_Ratio" placeholder="e.g. 1.2">
-
-        <label>RSI_14</label>
-        <input type="number" step="any" id="RSI_14" placeholder="e.g. 55.3">
-
-        <label>MACD_Hist</label>
-        <input type="number" step="any" id="MACD_Hist" placeholder="e.g. 0.45">
-
-        <label>Momentum_10</label>
-        <input type="number" step="any" id="Momentum_10" placeholder="e.g. 0.03">
-
-        <button id="predictBtn" onclick="generateForecast()">🚀 Generate Forecast</button>
-
-        <div id="resultBox" class="result">
-            <h2 id="directionText">--</h2>
-            <p class="confidence" id="confidenceText">--</p>
-        </div>
-        <p class="error" id="errorText"></p>
+      <h2>Watchlist</h2>
+      <input id="search" type="text" placeholder="Search symbol or name...">
+      <div class="list scrollable" id="stockList"></div>
     </div>
 
-    <!-- ✅ JavaScript to call the Flask API -->
-    <script>
-        // These MUST match the feature names in features.pkl
-        const FEATURE_NAMES = [
-            'Vol_5', 'Vol_10', 'Price_to_High', 'Price_to_Low',
-            'Daily_Return', 'Volume_MA_5', 'Volume_Ratio',
-            'RSI_14', 'MACD_Hist', 'Momentum_10'
-        ];
+    <!-- RIGHT: CHART + FORECAST -->
+    <div>
 
-        async function generateForecast() {
-            const btn = document.getElementById('predictBtn');
-            const resultBox = document.getElementById('resultBox');
-            const errorText = document.getElementById('errorText');
+      <div class="card" id="chartCard">
+        <div class="chart-head">
+          <div>
+            <h2 id="stockTitle">SCOM</h2>
+            <div class="big-price" id="bigPrice">--</div>
+            <div id="bigChange">--</div>
+          </div>
+          <div>
+            <div class="buttons" id="rangeButtons">
+              <button data-days="5">1W</button>
+              <button data-days="22" class="active">1M</button>
+              <button data-days="66">3M</button>
+              <button data-days="120">6M</button>
+            </div>
+            <div class="buttons" style="margin-top:8px">
+              <button id="pauseBtn">⏸ Pause feed</button>
+            </div>
+          </div>
+        </div>
 
-            // Reset UI
-            resultBox.classList.remove('show', 'up', 'down');
-            errorText.textContent = '';
-            btn.disabled = true;
-            btn.textContent = '⏳ Predicting...';
+        <div class="chart-box">
+          <canvas id="chart"></canvas>
+        </div>
+      </div>
 
-            // Collect input values
-            const payload = {};
-            let hasError = false;
+      <div class="card">
+        <h2>Short-Term Directional Forecast</h2>
+        <p style="font-size:13px;color:var(--muted);margin:0 0 14px">
+          Enter the 10 technical indicators for a stock, or click <b>Auto-fill</b> to load them.
+        </p>
 
-            for (const feature of FEATURE_NAMES) {
-                const value = document.getElementById(feature).value;
-                if (value === '' || isNaN(value)) {
-                    errorText.textContent = `⚠️ Please enter a valid number for ${feature}`;
-                    hasError = true;
-                    break;
+        <div class="grid2 scrollable" id="inputs"></div>
+
+        <div class="row">
+          <button id="fillBtn">↻ Auto-fill</button>
+          <button class="primary" id="runBtn">Generate Forecast</button>
+          <button id="resetBtn">Reset</button>
+        </div>
+
+        <div class="result scrollable" id="result"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <p class="note">
+    <b>Note:</b> This is a learning demo. Prices are simulated so the page works without a data subscription, and the forecast is a machine learning model — not investment advice.
+  </p>
+</div>
+
+<button id="toTop" title="Back to top">↑</button>
+
+<script>
+// 1. CONFIGURATION AND STATE
+const FEATURE_NAMES = [
+    'Vol_5', 'Vol_10', 'Price_to_High', 'Price_to_Low',
+    'Daily_Return', 'Month', 'Volume_MA_5', 'Volume_Ratio',
+    'RSI_14', 'Momentum_10'
+];
+
+const FEATURE_LABELS = {
+    'Vol_5': 'Volume (5-day)',
+    'Vol_10': 'Volume (10-day)',
+    'Price_to_High': 'Price to High (%)',
+    'Price_to_Low': 'Price to Low (%)',
+    'Daily_Return': 'Daily Return (%)',
+    'Month': 'Current Month (1-12)',
+    'Volume_MA_5': 'Volume MA (5)',
+    'Volume_Ratio': 'Volume Ratio',
+    'RSI_14': 'RSI (14)',
+    'Momentum_10': 'Momentum (10)'
+};
+
+let currentSymbol = 'SCOM'; 
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeInputs();
+    setupEventListeners();
+    updateClock();
+    setInterval(updateClock, 1000);
+    loadWatchlist(); 
+});
+
+// 2. DYNAMIC INPUT GENERATION
+function initializeInputs() {
+    const container = document.getElementById('inputs');
+    if (!container) return;
+    container.innerHTML = FEATURE_NAMES.map(feature => `
+        <div>
+            <label for="${feature}">${FEATURE_LABELS[feature] || feature}</label>
+            <input type="number" id="${feature}" step="0.0001" placeholder="0.00">
+        </div>
+    `).join('');
+}
+
+// 3. SYNTHETIC DATA GENERATOR
+function generateMockFeatures() {
+    const currentMonth = new Date().getMonth() + 1;
+    return {
+        'Vol_5': parseFloat((Math.random() * 1000000 + 500000).toFixed(0)),
+        'Vol_10': parseFloat((Math.random() * 1000000 + 500000).toFixed(0)),
+        'Price_to_High': parseFloat((Math.random() * 5).toFixed(2)),
+        'Price_to_Low': parseFloat((Math.random() * -5).toFixed(2)),
+        'Daily_Return': parseFloat((Math.random() * 4 - 2).toFixed(2)),
+        'Month': currentMonth,
+        'Volume_MA_5': parseFloat((Math.random() * 1000000 + 500000).toFixed(0)),
+        'Volume_Ratio': parseFloat((Math.random() * 2 + 0.5).toFixed(2)),
+        'RSI_14': parseFloat((Math.random() * 40 + 30).toFixed(2)),
+        'Momentum_10': parseFloat((Math.random() * 10 - 5).toFixed(2))
+    };
+}
+
+// 4. CHART RENDERING (Fixed ID mismatch)
+function updateChart(symbol, range = '1M') {
+    const ctx = document.getElementById('chart'); // Fixed: was 'priceChart'
+    if (!ctx) return;
+    
+    const daysMap = { '1W': 7, '1M': 30, '3M': 90, '6M': 180 };
+    const days = daysMap[range] || 30;
+    
+    const labels = [];
+    const prices = [];
+    let basePrice = 15.50;
+    
+    for (let i = days; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        labels.push(date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }));
+        
+        const change = (Math.random() - 0.48) * (basePrice * 0.03);
+        basePrice += change;
+        prices.push(parseFloat(basePrice.toFixed(2)));
+    }
+    
+    if (window.priceChartInstance) {
+        window.priceChartInstance.destroy();
+    }
+    
+    window.priceChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: `${symbol} Price`,
+                data: prices,
+                borderColor: '#22c55e',
+                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: '#003333',
+                    titleColor: '#e8edf7',
+                    bodyColor: '#e8edf7',
+                    borderColor: '#0B7676',
+                    borderWidth: 1
                 }
-                payload[feature] = parseFloat(value);
-            }
-
-            if (hasError) {
-                btn.disabled = false;
-                btn.textContent = '🚀 Generate Forecast';
-                return;
-            }
-
-            try {
-                // ✅ Call the Flask API
-                const response = await fetch('/predict', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.error || 'Prediction failed');
+            },
+            scales: {
+                x: { 
+                    display: true,
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    ticks: { color: '#94a3b8', maxTicksLimit: 8 }
+                },
+                y: {
+                    display: true,
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    ticks: { color: '#94a3b8' }
                 }
-
-                // Display results
-                const isUp = data.prediction === 1;
-                resultBox.classList.add('show', isUp ? 'up' : 'down');
-
-                document.getElementById('directionText').textContent = data.label;
-                document.getElementById('confidenceText').textContent =
-                    `Up: ${data.confidence.Price_Up_Percent}% | Down: ${data.confidence.Price_Down_Percent}%`;
-
-            } catch (err) {
-                errorText.textContent = `❌ ${err.message}`;
-            } finally {
-                btn.disabled = false;
-                btn.textContent = '🚀 Generate Forecast';
+            },
+            interaction: {
+                mode: 'nearest',
+                axis: 'x',
+                intersect: false
             }
         }
-    </script>
+    });
+}
+
+// 5. FORECAST & BACKEND CONNECTIVITY
+async function generateForecast() {
+    const btn = document.getElementById('runBtn');
+    const resultDiv = document.getElementById('result');
+    
+    resultDiv.classList.remove('show');
+    resultDiv.innerHTML = '<div style="padding:14px;text-align:center;color:var(--muted)">⏳ Querying Model...</div>';
+    resultDiv.classList.add('show');
+    btn.disabled = true;
+    btn.textContent = '⏳ Predicting...';
+
+    const payload = {};
+    let hasError = false;
+
+    for (const feature of FEATURE_NAMES) {
+        const inputEl = document.getElementById(feature);
+        const value = inputEl.value;
+        if (value === '' || isNaN(value)) {
+            hasError = true;
+            inputEl.style.borderColor = 'var(--red, red)';
+        } else {
+            inputEl.style.borderColor = 'var(--line, #ccc)';
+            payload[feature] = parseFloat(value);
+        }
+    }
+
+    if (hasError) {
+        resultDiv.innerHTML = `<div class="verdict" style="border-color:var(--red, red);color:var(--red, red)">⚠️ Please enter valid numbers for all fields.</div>`;
+        btn.disabled = false;
+        btn.textContent = 'Generate Forecast';
+        return;
+    }
+
+    try {
+        const response = await fetch('/predict', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || (data.missing ? `Missing: ${data.missing.join(', ')}` : 'Prediction failed'));
+        }
+
+        const isUp = data.prediction === 1;
+        const directionColor = isUp ? 'var(--green, #10b981)' : 'var(--red, #ef4444)';
+        const directionText = data.label;
+        const upConf = data.confidence.Price_Up_Percent;
+        const downConf = data.confidence.Price_Down_Percent;
+
+        resultDiv.innerHTML = `
+            <div class="verdict" style="background:${directionColor}15; border-color:${directionColor}">
+                <div class="dir" style="color:${directionColor}; font-size: 1.2em; font-weight: bold;">${directionText}</div>
+                <div class="sub" style="margin-top: 8px;">Confidence: Up ${upConf}% | Down ${downConf}%</div>
+            </div>
+            <div class="note" style="margin-top: 15px; font-size: 0.9em; color: var(--muted, #666);">
+                <b>Model Output:</b> The optimized algorithm analyzed the 10 technical indicators and predicts this directional movement.
+            </div>
+        `;
+        
+        resultDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    } catch (err) {
+        resultDiv.innerHTML = `<div class="verdict" style="border-color:var(--red, red);color:var(--red, red)">❌ ${err.message}</div>`;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Generate Forecast';
+    }
+}
+
+// 6. UTILITY FUNCTIONS
+function autoFillInputs() {
+    const mockData = generateMockFeatures();
+    for (const feature of FEATURE_NAMES) {
+        const inputEl = document.getElementById(feature);
+        if (inputEl) {
+            inputEl.value = mockData[feature];
+            inputEl.style.borderColor = 'var(--line, #ccc)';
+        }
+    }
+}
+
+function resetInputs() {
+    for (const feature of FEATURE_NAMES) {
+        const inputEl = document.getElementById(feature);
+        if (inputEl) {
+            inputEl.value = '';
+            inputEl.style.borderColor = 'var(--line, #ccc)';
+        }
+    }
+    const resultDiv = document.getElementById('result');
+    if (resultDiv) {
+        resultDiv.classList.remove('show');
+        resultDiv.innerHTML = '';
+    }
+}
+
+// 7. UI EVENT LISTENERS
+function setupEventListeners() {
+    const fillBtn = document.getElementById('fillBtn');
+    const runBtn = document.getElementById('runBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    if (fillBtn) fillBtn.addEventListener('click', autoFillInputs);
+    if (runBtn) runBtn.addEventListener('click', generateForecast);
+    if (resetBtn) resetBtn.addEventListener('click', resetInputs);
+
+    // Chart range buttons
+    document.querySelectorAll('#rangeButtons button').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('#rangeButtons button').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            const rangeMap = { '5': '1W', '22': '1M', '66': '3M', '120': '6M' };
+            updateChart(currentSymbol, rangeMap[this.dataset.days] || '1M');
+        });
+    });
+
+    // Search filter for watchlist
+    const searchInput = document.getElementById('search');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const term = this.value.toLowerCase();
+            document.querySelectorAll('.stock').forEach(stock => {
+                const sym = stock.querySelector('.sym').textContent.toLowerCase();
+                const nm = stock.querySelector('.nm').textContent.toLowerCase();
+                stock.style.display = (sym.includes(term) || nm.includes(term)) ? 'flex' : 'none';
+            });
+        });
+    }
+}
+
+// 8. CLOCK & MARKET STATUS
+function updateClock() {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-GB', { timeZone: 'Africa/Nairobi', hour12: false });
+    const clockEl = document.getElementById('clock');
+    if (clockEl) clockEl.textContent = timeStr + ' EAT';
+    
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const day = now.getDay(); 
+    
+    const isOpen = day >= 1 && day <= 5 && (hours > 9 || (hours === 9 && minutes >= 30)) && hours < 15;
+    
+    const dot = document.getElementById('dot');
+    const status = document.getElementById('marketStatus');
+    
+    if (isOpen) {
+        if (dot) dot.classList.remove('off');
+        if (status) status.textContent = 'Market Open';
+    } else {
+        if (dot) dot.classList.add('off');
+        if (status) status.textContent = 'Market Closed';
+    }
+}
+
+// 9. WATCHLIST
+async function loadWatchlist() {
+    const stocks = [
+        { sym: 'SCOM', nm: 'Safaricom', px: 15.50, ch: 0.25 },
+        { sym: 'EQTY', nm: 'Equity Group', px: 42.30, ch: -0.80 },
+        { sym: 'KCB', nm: 'KCB Group', px: 28.75, ch: 0.45 },
+        { sym: 'COOP', nm: 'Co-op Bank', px: 18.90, ch: 0.15 },
+        { sym: 'EABL', nm: 'EABL', px: 1520.00, ch: -12.50 }
+    ];
+
+    const list = document.getElementById('stockList');
+    if (!list) return;
+    list.innerHTML = '<div style="padding:10px;text-align:center;color:var(--muted, #666)">Loading AI predictions...</div>';
+
+    try {
+        const results = await Promise.all(stocks.map(async (s) => {
+            const payload = generateMockFeatures();
+
+            const response = await fetch('/predict', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+            
+            if (response.ok) {
+                s.predictionLabel = data.label;
+                s.isUp = data.prediction === 1;
+                s.upConf = data.confidence.Price_Up_Percent;
+                s.downConf = data.confidence.Price_Down_Percent;
+                s.features = payload;
+            } else {
+                s.predictionLabel = 'Error';
+                s.error = data.error;
+            }
+            return s;
+        }));
+
+        list.innerHTML = results.map(s => {
+            const isUp = s.isUp;
+            const badgeColor = isUp ? 'var(--green, #10b981)' : 'var(--red, #ef4444)';
+            const badgeText = isUp ? `📈 UP (${s.upConf}%)` : `📉 DOWN (${s.downConf}%)`;
+            const errorText = s.predictionLabel === 'Error' ? `<div style="color:var(--red, red);font-size:0.75em">⚠️ ${s.error}</div>` : '';
+            const featuresString = JSON.stringify(s.features || {}).replace(/"/g, '&quot;');
+
+            return `
+            <div class="stock" onclick='selectStock("${s.sym}", ${s.px}, ${s.ch}, ${featuresString})'>
+                <div>
+                    <div class="sym">${s.sym}</div>
+                    <div class="nm">${s.nm}</div>
+                </div>
+                <div style="text-align:right;">
+                    <div class="px">${s.px.toFixed(2)}</div>
+                    <div class="ch ${s.ch >= 0 ? 'up' : 'down'}">
+                        ${s.ch >= 0 ? '+' : ''}${s.ch.toFixed(2)}
+                    </div>
+                    <div style="font-size:0.75em; font-weight:bold; color:${badgeColor}; margin-top:4px;">
+                        ${s.predictionLabel !== 'Error' ? badgeText : ''}
+                    </div>
+                    ${errorText}
+                </div>
+            </div>
+            `;
+        }).join('');
+        
+        if (results.length > 0 && results[0].features) {
+            selectStock(results[0].sym, results[0].px, results[0].ch, results[0].features);
+        }
+
+    } catch (err) {
+        console.error('Failed to load watchlist:', err);
+        list.innerHTML = '<div style="padding:10px;text-align:center;color:var(--red, red)">Failed to connect to prediction server.</div>';
+    }
+}
+
+function selectStock(sym, px, ch, features = null) {
+    currentSymbol = sym;
+    
+    const titleEl = document.getElementById('stockTitle');
+    if (titleEl) titleEl.textContent = sym;
+    
+    const priceEl = document.getElementById('bigPrice');
+    if (priceEl) priceEl.textContent = px.toFixed(2);
+    
+    const changeEl = document.getElementById('bigChange');
+    if (changeEl) {
+        const pct = ((ch / px) * 100).toFixed(2);
+        changeEl.textContent = `${ch >= 0 ? '+' : ''}${ch.toFixed(2)} (${pct}%)`;
+        changeEl.className = ch >= 0 ? 'up' : 'down';
+    }
+    
+    document.querySelectorAll('.stock').forEach(el => {
+        if (el.querySelector('.sym').textContent === sym) {
+            el.classList.add('active');
+        } else {
+            el.classList.remove('active');
+        }
+    });
+
+    if (features) {
+        for (const feature of FEATURE_NAMES) {
+            const inputEl = document.getElementById(feature);
+            if (inputEl && features[feature] !== undefined) {
+                inputEl.value = features[feature];
+                inputEl.style.borderColor = 'var(--line, #ccc)';
+            }
+        }
+    }
+    
+    updateChart(sym, '1M');
+}
+</script>
 </body>
 </html>
