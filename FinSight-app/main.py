@@ -4,16 +4,16 @@ from flask_cors import CORS
 import joblib
 import pandas as pd
 
-# ✅ FIX: Use absolute paths so Render can find files regardless of where it runs
+# Use absolute paths so Render can find files regardless of where it runs
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 app = Flask(__name__, static_folder=BASE_DIR, static_url_path='')
 CORS(app)
 
-# ==========================================
-# 1. LOAD MODEL & FEATURES (Using Absolute Paths)
-# ==========================================
-print("🔄 Loading FinSight Model and Features...")
+
+# 1. Load Model & Features Using Absolute Paths
+
+print("Loading FinSight Model and Features...")
 try:
     model_path = os.path.join(BASE_DIR, 'model.pkl')
     features_path = os.path.join(BASE_DIR, 'features.pkl')
@@ -25,12 +25,11 @@ except FileNotFoundError:
     print("❌ Error: Model files not found.")
     exit(1)
 
-# ==========================================
-# 2. DEFINE API ROUTES
-# ==========================================
+# 2. Define the API endpoints
+
 @app.route('/')
 def home():
-    # ✅ Serve the frontend using the absolute base directory
+    # Serve the frontend using the absolute base directory
     return send_from_directory(BASE_DIR, 'index.html')
 
 @app.route('/predict', methods=['POST'])
@@ -69,10 +68,10 @@ def predict():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# ==========================================
-# 3. RUN THE SERVER
-# ==========================================
+
+# 3. Run the Server 
+
 if __name__ == '__main__':
-    # ✅ Render provides a PORT environment variable. We must use it.
+    # Use Render Provided port
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False) # debug=False for production!
